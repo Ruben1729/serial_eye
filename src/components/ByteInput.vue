@@ -7,6 +7,7 @@ import {Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVal
 
 const props = defineProps<{
     modelValue: string;
+    disabled?: boolean;
 }>();
 const emit = defineEmits(['update:modelValue']);
 const inputValue = useVModel(props, 'modelValue', emit);
@@ -53,6 +54,6 @@ function handleChangeFormat(value: ByteFormat) {
                 </SelectGroup>
             </SelectContent>
         </Select>
-        <Input v-model="inputValue" @input="handleChange" />
+        <Input v-model="inputValue" :disabled="props.disabled" @input="handleChange" />
     </div>
 </template>

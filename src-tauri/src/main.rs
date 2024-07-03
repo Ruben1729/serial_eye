@@ -2,10 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use tauri::Manager;
-use std::{time::Duration, sync::Mutex};
+use std::{time::Duration};
 use tauri::{AppHandle, State, Wry};
-use tokio::sync::mpsc::{self, Receiver, Sender};
-use tokio::sync::Mutex as AsyncMutex;
+use tokio::sync::{mpsc::{self, Receiver, Sender}, Mutex};
 use bytes::{BytesMut, BufMut};
 use tokio_serial::{DataBits, FlowControl, Parity, StopBits, SerialStream};
 use tokio_util::codec::{Framed, Decoder, Encoder};
@@ -13,7 +12,6 @@ use futures::{io, StreamExt, SinkExt};
 
 pub struct SerialState {
     pub tx: Mutex<Option<Sender<Vec<u8>>>>,
-    pub port: AsyncMutex<Option<SerialStream>>,
 }
 
 pub struct CustomCodec;
@@ -55,7 +53,7 @@ async fn connect_uart(state: State<'_, SerialState>, app_handle: AppHandle<Wry>)
     let framed = Framed::new(port, CustomCodec);
 
     {
-        let mut state_tx = state.tx.lock().unwrap();
+        let mut state_tx = state.tx.lock().await;
         *state_tx = Some(tx.clone());
     }
 
@@ -85,9 +83,22 @@ async fn connect_uart(state: State<'_, SerialState>, app_handle: AppHandle<Wry>)
     Ok(())
 }
 
+#[tauri::command]
+async fn send_to_uart(state: State<'_, SerialState>, data: Vec<u8>) -> Result<(), String> {
+    let state_tx = state.tx.lock().await;
+    if let Some(tx) = &*state_tx {
+        tx.send(data).await.map_err(|e| e.to_string())
+    } else {
+        Err("Serial port not connected".to_string())
+    }
+}
+
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connect_uart, disconnect_uart])
+        .manage(SerialState {
+            tx: Mutex::new(None),
+        })
+        .invoke_handler(tauri::generate_handler![connect_uart, send_to_uart])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
