@@ -5,6 +5,7 @@ use tauri::Manager;
 use std::{time::Duration, sync::Mutex};
 use tauri::{AppHandle, State, Wry};
 use tokio::sync::mpsc::{self, Receiver, Sender};
+use tokio::sync::Mutex as AsyncMutex;
 use bytes::{BytesMut, BufMut};
 use tokio_serial::{DataBits, FlowControl, Parity, StopBits, SerialStream};
 use tokio_util::codec::{Framed, Decoder, Encoder};
@@ -12,6 +13,7 @@ use futures::{io, StreamExt, SinkExt};
 
 pub struct SerialState {
     pub tx: Mutex<Option<Sender<Vec<u8>>>>,
+    pub port: AsyncMutex<Option<SerialStream>>,
 }
 
 pub struct CustomCodec;
@@ -85,7 +87,7 @@ async fn connect_uart(state: State<'_, SerialState>, app_handle: AppHandle<Wry>)
 
 fn main() {
     tauri::Builder::default()
-        .invoke_handler(tauri::generate_handler![connect_uart])
+        .invoke_handler(tauri::generate_handler![connect_uart, disconnect_uart])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
