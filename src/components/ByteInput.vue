@@ -1,57 +1,58 @@
-<template>
-  <Input v-model="inputValue" @input="updateValue" />
-</template>
-
 <script setup lang="ts">
-import { ref, watch } from 'vue';
-import { Input } from '@/components/ui/input';
-import { ByteFormat } from '@/lib/byte_format.ts';
+import {Input} from '@/components/ui/input';
+import {useVModel} from '@vueuse/core';
+import {ByteFormat, FORMATS} from "@/lib/byte_format.ts";
+import {ref} from "vue";
+import {Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select";
 
 const props = defineProps<{
-  format: ByteFormat;
-  modelValue: string;
+    modelValue: string;
 }>();
-
 const emit = defineEmits(['update:modelValue']);
-const inputValue = ref<string>('');
+const inputValue = useVModel(props, 'modelValue', emit);
+const format = ref<ByteFormat>(ByteFormat.DECIMAL);
 
-watch(() => props.modelValue, (newValue) => {
-  inputValue.value = formatValue(newValue, props.format);
-}, { immediate: true });
-
-function formatValue(value: string | number, format: ByteFormat): string {
-  switch (format) {
-    case ByteFormat.ASCII:
-      return typeof value === 'number' ? String.fromCharCode(value) : value;
-    case ByteFormat.HEX:
-      return typeof value === 'number' ? value.toString(16) : parseInt(value).toString(16);
-    case ByteFormat.BINARY:
-      return typeof value === 'number' ? value.toString(2) : parseInt(value).toString(2);
-    case ByteFormat.DECIMAL:
-      return value.toString();
-    default:
-      return value.toString();
-  }
+function parseValue(value: string, format: ByteFormat): number {
+    const config = FORMATS[format];
+    return config.parse(value);
 }
 
-function parseValue(value: string, format: ByteFormat): string {
-  switch (format) {
-    case ByteFormat.ASCII:
-      return value.charCodeAt(0);
-    case ByteFormat.HEX:
-      return parseInt(value, 16);
-    case ByteFormat.BINARY:
-      return parseInt(value, 2);
-    case ByteFormat.DECIMAL:
-      return parseInt(value, 10);
-    default:
-      return value;
-  }
+function stringValue(value: number, format: ByteFormat): string {
+    const config = FORMATS[format];
+    return config.string(value);
 }
 
-function updateValue(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const newValue = target.value;
-  emit('update:modelValue', parseValue(newValue, props.format));
+function handleChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const config = FORMATS[format.value];
+    inputValue.value = input.value.replaceAll(config.regex, '').toUpperCase();
+}
+
+function handleChangeFormat(value: ByteFormat) {
+    const n = parseValue(inputValue.value, format.value);
+    let str = stringValue(n, value);
+    if (Number.isNaN(n)) {
+        str = '';
+    }
+    inputValue.value = str;
+    format.value = value;
 }
 </script>
+
+<template>
+    <div class="flex gap-2">
+        <Select :modelValue="format" @update:modelValue="handleChangeFormat">
+            <SelectTrigger class="w-[200px]">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectGroup>
+                    <SelectItem v-for="(config, key) in FORMATS" :key="key" :value="key">
+                        {{ config.name }}
+                    </SelectItem>
+                </SelectGroup>
+            </SelectContent>
+        </Select>
+        <Input v-model="inputValue" @input="handleChange" />
+    </div>
+</template>

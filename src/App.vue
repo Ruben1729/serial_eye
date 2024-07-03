@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import ByteInput from '@/components/ByteInput.vue';
-import { ByteFormat } from '@/lib/byte_format.ts';
 
-const value = ref<number>(65);
-const byteFormat = ref<ByteFormat>(ByteFormat.HEX);
+const value = ref<string>('65');
 </script>
 
 <template>
-  <ByteInput v-model="value" :format="byteFormat" />
+    <div class="p-6">
+        <ByteInput v-model="value" />
+    </div>
 </template>
